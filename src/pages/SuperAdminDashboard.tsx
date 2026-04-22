@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-const BASE = "http://localhost:3001/api/superadmin";
+const BASE = `${import.meta.env.VITE_API_URL || "http://localhost:3001/api"}/superadmin`;
 
 function useSupAdminFetch<T>(endpoint: string, token: string | null) {
     const [data, setData] = useState<T | null>(null);
