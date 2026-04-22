@@ -129,9 +129,9 @@ router.post("/register-customer", async (req, res) => {
 
         const hashed = await bcrypt.hash(password, 12);
 
-        // Create user as Admin of their own company, pending email verification
+        // Create user as Customer of their own company, pending email verification
         await connection.query(
-            "INSERT INTO users (name, email, password, role, company_id, status) VALUES (?, ?, ?, 'Admin', ?, 'pending_verification')",
+            "INSERT INTO users (name, email, password, role, company_id, status) VALUES (?, ?, ?, 'Customer', ?, 'pending_verification')",
             [name, email, hashed, company_id]
         );
 
