@@ -116,19 +116,19 @@ router.post("/register-customer", async (req, res) => {
             return res.status(409).json({ error: "Email is already registered. Please sign in." });
         }
 
-        // Create a NEW company for each new user — full data isolation (Option B)
-        const storeName = company_name?.trim() || `${name}'s Store`;
-        const [companyResult] = await pool.query(
-            "INSERT INTO companies (name) VALUES (?)",
-            [storeName]
-        );
-        const company_id = companyResult.insertId;
+        // Option 1: Single Store Setup
+        // Find the main company (the first one created by the store owner)
+        const [companies] = await pool.query("SELECT company_id FROM companies ORDER BY company_id ASC LIMIT 1");
+        if (companies.length === 0) {
+            return res.status(500).json({ error: "Store not initialized. An Admin must register the store first." });
+        }
+        const company_id = companies[0].company_id;
 
         const hashed = await bcrypt.hash(password, 12);
 
-        // Create user as Admin of their own company, pending email verification
+        // Create user as a Customer of the main company, pending email verification
         await pool.query(
-            "INSERT INTO users (name, email, password, role, company_id, status) VALUES (?, ?, ?, 'Admin', ?, 'pending_verification')",
+            "INSERT INTO users (name, email, password, role, company_id, status) VALUES (?, ?, ?, 'Customer', ?, 'pending_verification')",
             [name, email, hashed, company_id]
         );
 
