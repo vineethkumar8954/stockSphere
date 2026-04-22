@@ -110,30 +110,34 @@ router.post("/register-customer", async (req, res) => {
     if (!email || !name || !password) {
         return res.status(400).json({ error: "Name, email, and password are required" });
     }
+    const connection = await pool.getConnection();
     try {
-        const [existingUser] = await pool.query("SELECT * FROM users WHERE email = ?", [email]);
+        await connection.beginTransaction();
+
+        const [existingUser] = await connection.query("SELECT * FROM users WHERE email = ?", [email]);
         if (existingUser.length > 0) {
+            await connection.rollback();
             return res.status(409).json({ error: "Email is already registered. Please sign in." });
         }
 
-        // Option 1: Single Store Setup
-        // Find the main company (the first one created by the store owner)
-        const [companies] = await pool.query("SELECT company_id FROM companies ORDER BY company_id ASC LIMIT 1");
-        if (companies.length === 0) {
-            return res.status(500).json({ error: "Store not initialized. An Admin must register the store first." });
-        }
-        const company_id = companies[0].company_id;
+        // Option C: Multi-tenant — create a brand new company for every user
+        const newCompanyName = company_name?.trim() || `${name}'s Store`;
+        const [companyRes] = await connection.query(
+            "INSERT INTO companies (name) VALUES (?)", [newCompanyName]
+        );
+        const company_id = companyRes.insertId;
 
         const hashed = await bcrypt.hash(password, 12);
 
-        // Create user as a Customer of the main company, pending email verification
-        await pool.query(
-            "INSERT INTO users (name, email, password, role, company_id, status) VALUES (?, ?, ?, 'Customer', ?, 'pending_verification')",
+        // Create user as Admin of their own company, pending email verification
+        await connection.query(
+            "INSERT INTO users (name, email, password, role, company_id, status) VALUES (?, ?, ?, 'Admin', ?, 'pending_verification')",
             [name, email, hashed, company_id]
         );
 
+        await connection.commit();
 
-        // Generate magical link token
+        // Generate email verification token (outside transaction)
         const token = uuidv4();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60000); // 24 hours
 
@@ -183,7 +187,10 @@ router.post("/register-customer", async (req, res) => {
 
         res.status(201).json({ message: "Registration successful. Please check your email to verify your account." });
     } catch (err) {
+        await connection.rollback();
         res.status(500).json({ error: err.message });
+    } finally {
+        connection.release();
     }
 });
 

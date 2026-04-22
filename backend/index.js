@@ -17,8 +17,26 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ── Middleware ──────────────────────────────────────────────────────────────
-app.use(cors());
+// ── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+    "https://main.d2ps4n55wo4erw.amplifyapp.com",
+    "https://13-201-177-21.sslip.io",
+    "http://localhost:8080",
+    "http://localhost:5173",
+];
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, Postman)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS blocked: ${origin}`));
+        }
+    },
+    credentials: true,
+}));
+
+// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
 
 // ── Routes ──────────────────────────────────────────────────────────────────
